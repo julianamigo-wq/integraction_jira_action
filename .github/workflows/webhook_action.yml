@@ -1,0 +1,47 @@
+name: 'Jira Webhook Processor'
+
+# Este flujo de trabajo solo se ejecuta cuando es activado por una llamada API
+# a través de un 'repository_dispatch', que es lo que hará el proxy de Flask.
+on:
+  repository_dispatch:
+    types: [jira_attachment_event] # El tipo de evento que definiremos en Flask
+
+# Permisos mínimos necesarios
+permissions:
+  contents: read
+
+jobs:
+  process_jira_webhook:
+    runs-on: ubuntu-latest
+    
+    # El paso 'if' asegura que solo se ejecute si la carga útil (payload) 
+    # enviada por el proxy de Flask contiene la clave del ticket.
+    if: github.event.client_payload.issue_key != ''
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests
+        # El script `get_attachements.py` usa la librería `requests`.
+
+      - name: Run Jira Attachments Script
+        run: python get_attachments.py ${{ github.event.client_payload.issue_key }}
+        
+        # Aquí es donde inyectamos las variables de entorno de seguridad 
+        # y la clave del ticket como argumento.
+        env:
+          # Las 'secrets' deben configurarse en la configuración de tu repositorio de GitHub.
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }} 
+          JIRA_API_USER: ${{ secrets.JIRA_API_USER }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          
+# Nota Importante: La clave del ticket (issue_key) se pasa a través de la 
+# carga útil (payload) del 'repository_dispatch'. 
+# El valor es: ${{ github.event.client_payload.issue_key }}
