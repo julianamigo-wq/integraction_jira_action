@@ -21,6 +21,11 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # bloque añadido para cambiar politica de ejecucion de PowerShell temporalmente
+      - name: Establecer Política de Ejecución de PowerShell
+        run: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+        shell: powershell # Aseguramos que se ejecute con PowerShell
         
       - name: Set up Python
         uses: actions/setup-python@v5
