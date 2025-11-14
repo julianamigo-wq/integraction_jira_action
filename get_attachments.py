@@ -1,17 +1,13 @@
 import os
 import requests
 import sys
-from pathlib import Path # Importación necesaria para el manejo de rutas
+from pathlib import Path 
 
 # --- CONFIGURACIÓN ---
-# Las variables de entorno serán inyectadas por GitHub Actions.
-# Estas son necesarias para autenticarse con la API de Jira.
-JIRA_URL = os.getenv('JIRA_BASE_URL') # Ejemplo: 'https://tuempresa.atlassian.net'
-JIRA_USER = os.getenv('JIRA_API_USER') # Email del usuario
-JIRA_TOKEN = os.getenv('JIRA_API_TOKEN') # Token de API generado en Atlassian
+JIRA_URL = os.getenv('JIRA_BASE_URL')
+JIRA_USER = os.getenv('JIRA_API_USER')
+JIRA_TOKEN = os.getenv('JIRA_API_TOKEN')
 
-# La clave del ticket (ej: 'PROYECTO-123') viene como argumento de línea de comandos
-# que será proporcionado por el flujo de trabajo de GitHub Action.
 try:
     JIRA_ISSUE_KEY = sys.argv[1]
 except IndexError:
@@ -26,67 +22,50 @@ def get_issue_attachments():
     """
     print(f"Buscando adjuntos para el ticket: {JIRA_ISSUE_KEY}...")
 
-    # Endpoint de la API de Jira para obtener la información del ticket
     api_url = f"{JIRA_URL}/rest/api/3/issue/{JIRA_ISSUE_KEY}"
-    
-    # Parámetros para limitar los campos de la respuesta, solo necesitamos los attachments.
-    params = {
-        'fields': 'attachment'
-    }
-
-    # Autenticación usando Basic Auth con Email y Token de API
+    params = {'fields': 'attachment'}
     auth = (JIRA_USER, JIRA_TOKEN)
 
     try:
         response = requests.get(api_url, auth=auth, params=params)
-        response.raise_for_status() # Lanza un error para códigos de estado 4xx/5xx
+        response.raise_for_status()
 
         issue_data = response.json()
-        
-        # Acceder a la lista de adjuntos en la estructura JSON
         attachments = issue_data['fields']['attachment']
         
         if not attachments:
             print(f"El ticket {JIRA_ISSUE_KEY} no tiene adjuntos. Finalizando.")
-            # Si no hay adjuntos, salimos sin error
             return 
 
         print(f"Se encontraron {len(attachments)} adjuntos.")
 
         # Crear carpeta si no existe ****
-        # Definimos la ruta base relativa, intentando primero con 'Documentos' para Windows.
-        # Si la carpeta principal 'Documentos' no existe, se creará también.
+        # '..' sube un nivel de la raíz del repositorio
         
-        # Path('../..') sube dos niveles desde la ubicación actual (donde se ejecuta el script)
-        # luego entra a 'Documentos' o 'Documents', y finalmente crea la carpeta con la clave.
-        base_dir = Path('../Documentos') # Intenta con la versión en español
+        # Primero intentamos con 'Documentos' (típico en Windows ES)
+        base_dir = Path('../Documentos')
         
-        # Si la ruta en español no existe (y en un entorno GitHub Actions podría no existir ninguna de las dos)
-        # se crea la carpeta 'Documentos' si no existe.
+        # Si 'Documentos' no es la carpeta, intentamos con 'Documents' (típico en Windows EN)
+        # NOTA: Esto solo tiene sentido si el directorio de trabajo es la raíz del repositorio.
+        if not base_dir.exists():
+             base_dir = Path('../Documents')
+        
+        # Creamos la carpeta base si no existe (parents=True maneja ../)
         base_dir.mkdir(parents=True, exist_ok=True)
         
-        # La carpeta final de destino
+        # La carpeta final de destino dentro de la carpeta base (e.g., ../Documentos/PROYECTO-123)
         target_dir = base_dir / JIRA_ISSUE_KEY
-        
-        # Crea la subcarpeta usando el valor de JIRA_ISSUE_KEY si no existe.
-        # parents=True crea el directorio base si fuera necesario.
-        # exist_ok=True evita errores si ya existe.
         target_dir.mkdir(parents=True, exist_ok=True)
         print(f"Carpeta de destino creada/verificada: {target_dir.resolve()}")
         # Fin de 'Crear carpeta si no existe ****'
 
 
         # Verificar cuantos archivos tiene la carpeta e imprimir ****
-        # Listamos solo archivos (usando iterdir y is_file)
         files_before = [f for f in target_dir.iterdir() if f.is_file()]
         print(f"La carpeta '{JIRA_ISSUE_KEY}' tiene {len(files_before)} archivos ANTES de la descarga.")
         # Fin de 'Verificar cuantos archivos tiene la carpeta e imprimir ****'
         
         
-        # Aquí puedes agregar la lógica para procesar los adjuntos,
-        # por ejemplo, descargarlos o subir su metadata a un archivo.
-        
-        # Ejemplo: Imprimir el nombre y URL de cada adjunto
         downloaded_count = 0
         for i, att in enumerate(attachments):
             filename = att['filename']
@@ -96,11 +75,9 @@ def get_issue_attachments():
             print(f"    - Nombre: {filename}")
             
             # copiar adjunto a carpeta correspondiente ****
-            
             file_path = target_dir / filename
             
             try:
-                # Usamos stream=True para descargas grandes y lo hacemos con el mismo 'auth'
                 att_response = requests.get(content_url, auth=auth, stream=True)
                 att_response.raise_for_status()
                 
@@ -114,7 +91,6 @@ def get_issue_attachments():
                 
             except requests.exceptions.HTTPError as e:
                 print(f"    - ERROR: No se pudo descargar {filename}. Error HTTP: {e.response.status_code}")
-                # El token debe tener permisos de descarga.
             except Exception as e:
                 print(f"    - ERROR: Ocurrió un error inesperado durante la descarga de {filename}: {e}")
             # Fin de 'copiar adjunto a carpeta correspondiente ****'
@@ -130,13 +106,12 @@ def get_issue_attachments():
 
 
         # Si la carpeta tiene un archivo txt leer y contar registros ****
-        
-        # Buscamos el primer archivo que termine en .txt
         txt_files = [f for f in files_after if f.suffix.lower() == '.txt']
         
         if txt_files:
             txt_file_path = txt_files[0]
             try:
+                # Usamos el modo de lectura con codificación UTF-8
                 with open(txt_file_path, 'r', encoding='utf-8') as f:
                     line_count = sum(1 for line in f)
                 print(f"  > Archivo TXT encontrado: {txt_file_path.name}")
