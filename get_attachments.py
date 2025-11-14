@@ -4,10 +4,12 @@ import sys
 from pathlib import Path 
 
 # --- CONFIGURACIÓN ---
-JIRA_URL = os.getenv('JIRA_BASE_URL')
-JIRA_USER = os.getenv('JIRA_API_USER')
-JIRA_TOKEN = os.getenv('JIRA_API_TOKEN')
+# Las variables de entorno serán inyectadas por GitHub Actions.
+JIRA_URL = os.getenv('JIRA_BASE_URL') # Ejemplo: 'https://tuempresa.atlassian.net'
+JIRA_USER = os.getenv('JIRA_API_USER') # Email del usuario
+JIRA_TOKEN = os.getenv('JIRA_API_TOKEN') # Token de API generado en Atlassian
 
+# La clave del ticket (ej: 'PROYECTO-123') viene como argumento de línea de comandos
 try:
     JIRA_ISSUE_KEY = sys.argv[1]
 except IndexError:
@@ -18,7 +20,7 @@ except IndexError:
 
 def get_issue_attachments():
     """
-    Obtiene la lista de adjuntos de un ticket de Jira específico y los descarga.
+    Obtiene la lista de adjuntos de un ticket de Jira específico y los descarga en la carpeta Documentos.
     """
     print(f"Buscando adjuntos para el ticket: {JIRA_ISSUE_KEY}...")
 
@@ -40,23 +42,24 @@ def get_issue_attachments():
         print(f"Se encontraron {len(attachments)} adjuntos.")
 
         # Crear carpeta si no existe ****
-        # '..' sube un nivel de la raíz del repositorio
-        
-        # Primero intentamos con 'Documentos' (típico en Windows ES)
-        base_dir = Path('../Documentos')
-        
-        # Si 'Documentos' no es la carpeta, intentamos con 'Documents' (típico en Windows EN)
-        # NOTA: Esto solo tiene sentido si el directorio de trabajo es la raíz del repositorio.
-        if not base_dir.exists():
-             base_dir = Path('../Documents')
-        
-        # Creamos la carpeta base si no existe (parents=True maneja ../)
-        base_dir.mkdir(parents=True, exist_ok=True)
-        
-        # La carpeta final de destino dentro de la carpeta base (e.g., ../Documentos/PROYECTO-123)
-        target_dir = base_dir / JIRA_ISSUE_KEY
-        target_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Carpeta de destino creada/verificada: {target_dir.resolve()}")
+        try:
+            # 1. Obtenemos el directorio principal del usuario (C:\Users\TuUsuario).
+            user_home = os.path.expanduser('~')
+            
+            # 2. Construimos la ruta segura a la carpeta 'Documents' del usuario de Windows.
+            # Aunque se muestre en español, el nombre lógico del sistema suele ser 'Documents'.
+            base_dir = Path(os.path.join(user_home, 'Documents'))
+            
+            # 3. Definimos la carpeta de destino: [Documentos]/[JIRA_ISSUE_KEY]
+            target_dir = base_dir / JIRA_ISSUE_KEY
+            
+            # 4. Creamos la subcarpeta si no existe.
+            target_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Carpeta de destino creada/verificada: {target_dir.resolve()}")
+
+        except Exception as e:
+            print(f"ERROR: No se pudo crear la carpeta en la ruta de Documentos del usuario. Error: {e}")
+            sys.exit(1)
         # Fin de 'Crear carpeta si no existe ****'
 
 
@@ -78,10 +81,11 @@ def get_issue_attachments():
             file_path = target_dir / filename
             
             try:
+                # Se necesita la autenticación para la descarga del contenido
                 att_response = requests.get(content_url, auth=auth, stream=True)
                 att_response.raise_for_status()
                 
-                # Escribir el contenido en el archivo de destino en modo binario ('wb')
+                # Escribir el contenido en el archivo en modo binario ('wb')
                 with open(file_path, 'wb') as f:
                     for chunk in att_response.iter_content(chunk_size=8192):
                         f.write(chunk)
@@ -111,7 +115,7 @@ def get_issue_attachments():
         if txt_files:
             txt_file_path = txt_files[0]
             try:
-                # Usamos el modo de lectura con codificación UTF-8
+                # Abrimos el archivo TXT para contar las líneas/registros
                 with open(txt_file_path, 'r', encoding='utf-8') as f:
                     line_count = sum(1 for line in f)
                 print(f"  > Archivo TXT encontrado: {txt_file_path.name}")
