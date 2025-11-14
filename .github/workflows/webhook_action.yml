@@ -21,15 +21,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      # bloque añadido para cambiar politica de ejecucion de PowerShell temporalmente
-      # Ejecutamos powershell desde cmd ya que PS no nos permite directamente
-      - name: Establecer Política de Ejecución de PowerShell
-        # Usamos cmd como shell principal.
-        shell: cmd 
-        # Ejecutamos PowerShell como un subproceso dentro de cmd.
-        # De esta forma, el bypass se aplica.
-        run: powershell -command "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
         
       - name: Set up Python
         uses: actions/setup-python@v5
