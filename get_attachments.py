@@ -51,6 +51,11 @@ def get_issue_attachments():
             return 
 
         print(f"Se encontraron {len(attachments)} adjuntos.")
+
+        # Crear carpeta si no existe ****
+
+
+        # Verificar cuantos archivos tiene la carpeta e imprimir ****
         
         # Aquí puedes agregar la lógica para procesar los adjuntos,
         # por ejemplo, descargarlos o subir su metadata a un archivo.
@@ -61,9 +66,13 @@ def get_issue_attachments():
             print(f"    - Nombre: {att['filename']}")
             print(f"    - URL de Contenido: {att['content']}") # Esta URL requiere autenticación
             print(f"    - Autor: {att['author']['displayName']}")
-            
-        # Si la meta es solo la metadata, puedes detenerte aquí.
-        # Si la meta es DESCARGAR los archivos, la lógica para la descarga iría aquí,
+            # copiar adjunto a carpeta correspondiente ****
+
+
+        # Verificar nuevamente cuantos archivos debe tener la carpeta ****
+
+        # Si la carpeta tiene un archivo txt leer y contar registros ****
+        
         # usando `requests.get(att['content'], auth=auth, stream=True)`
 
     except requests.exceptions.HTTPError as e:
