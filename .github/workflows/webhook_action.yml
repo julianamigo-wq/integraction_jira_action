@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   process_jira_webhook:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # runs-on: ubuntu-latest
     
     # El paso 'if' asegura que solo se ejecute si la carga útil (payload) 
     # enviada por el proxy de Flask contiene la clave del ticket.
